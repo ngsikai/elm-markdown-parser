@@ -39,12 +39,22 @@ view model =
             exprs =
                 (parseAll model)
           in
-            div [] (List.map show exprs)
+            div [] (List.map showBlock exprs)
         ]
 
 
-show : MarkdownExpr -> Html Msg
-show expr =
+showBlock : BlockExpr -> Html Msg
+showBlock expr =
+    case expr of
+        InlineBlock contents ->
+            showInline contents
+
+        BlockQuote contents ->
+            blockquote [] (List.map showInline contents)
+
+
+showInline : InlineExpr -> Html Msg
+showInline expr =
     case expr of
         Header level str ->
             case level of
@@ -67,7 +77,7 @@ show expr =
                     h6 [] [ text str ]
 
         Plain str ->
-            span [] [ text str ]
+            p [] [ text str ]
 
 
 
