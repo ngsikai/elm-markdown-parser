@@ -1,54 +1,90 @@
 module App exposing (..)
 
-import Html exposing (Html, div, textarea, text, span, h1, program)
+import Parser exposing (..)
+import Html exposing (..)
 import Html.Events exposing (onInput)
-import String exposing (startsWith, dropLeft)
+
 
 -- MODEL
+
+
 type alias Model =
     String
 
+
 init : ( Model, Cmd Msg )
-init = 
+init =
     ( "#hello", Cmd.none )
 
+
+
 -- MESSAGES
+
+
 type Msg
     = Change String
 
+
+
 -- VIEW
+
+
 view : Model -> Html Msg
 view model =
     div []
-        [
-            div [] [
-                textarea [onInput Change] [text model]
+        [ div []
+            [ textarea [ onInput Change ] [ text model ]
             ]
-            , div [] [show (parse model)]
+        , let
+            exprs =
+                (parseAll model)
+          in
+            div [] (List.map show exprs)
         ]
 
-type Fragments
-    = H1 String
-    | Plain String
 
-parse : Model -> Fragments
-parse model =
-    if startsWith "#" model then H1 (dropLeft 1 model) else Plain model
+show : MarkdownExpr -> Html Msg
+show expr =
+    case expr of
+        Header level str ->
+            case level of
+                1 ->
+                    h1 [] [ text str ]
 
-show : Fragments -> Html Msg
-show h =
-    case h of
-        H1 str -> h1 [] [text str]
-        Plain str -> span [] [text str]
+                2 ->
+                    h2 [] [ text str ]
+
+                3 ->
+                    h3 [] [ text str ]
+
+                4 ->
+                    h4 [] [ text str ]
+
+                5 ->
+                    h5 [] [ text str ]
+
+                _ ->
+                    h6 [] [ text str ]
+
+        Plain str ->
+            span [] [ text str ]
+
+
 
 -- UPDATE
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Change newContent ->
             ( newContent, Cmd.none )
 
+
+
 -- MAIN
+
+
 main : Program Never Model Msg
 main =
     program
