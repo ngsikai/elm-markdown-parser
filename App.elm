@@ -47,7 +47,7 @@ showBlock : BlockExpr -> Html Msg
 showBlock expr =
     case expr of
         InlineBlock contents ->
-            p [] [ text contents ]
+            showInline contents
 
         BlockQuote contents ->
             blockquote [] (List.map showBlock contents)
@@ -56,26 +56,34 @@ showBlock expr =
             ul [] (List.map (\content -> li [] (List.map showBlock content)) contents)
 
 
+showInline : InlineExpr -> Html Msg
+showInline expr =
+    case expr of
+        Header level str ->
+            case level of
+                1 ->
+                    h1 [] [ text str ]
 
--- showInline : InlineExpr -> Html Msg
--- showInline expr =
---     case expr of
---         Header level str ->
---             case level of
---                 1 ->
---                     h1 [] [ text str ]
---                 2 ->
---                     h2 [] [ text str ]
---                 3 ->
---                     h3 [] [ text str ]
---                 4 ->
---                     h4 [] [ text str ]
---                 5 ->
---                     h5 [] [ text str ]
---                 _ ->
---                     h6 [] [ text str ]
---         Plain str ->
---             p [] [ text str ]
+                2 ->
+                    h2 [] [ text str ]
+
+                3 ->
+                    h3 [] [ text str ]
+
+                4 ->
+                    h4 [] [ text str ]
+
+                5 ->
+                    h5 [] [ text str ]
+
+                _ ->
+                    h6 [] [ text str ]
+
+        Plain str ->
+            p [] [ text str ]
+
+
+
 -- UPDATE
 
 

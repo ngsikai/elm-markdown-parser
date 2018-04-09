@@ -4,16 +4,14 @@ import String exposing (startsWith, dropLeft, split, lines, words, toList, lengt
 
 
 type BlockExpr
-    = InlineBlock String
+    = InlineBlock InlineExpr
     | BlockQuote (List BlockExpr)
     | UList (List (List BlockExpr))
 
 
-
--- | List InlineExpr
--- type InlineExpr
---     = Header Int String
---     | Plain String
+type InlineExpr
+    = Header Int String
+    | Plain String
 
 
 parseAll : String -> List BlockExpr
@@ -79,7 +77,7 @@ buildBlock lines context =
         in
             Just (UList listItems)
     else
-        Just (InlineBlock (concat lines))
+        Just (InlineBlock (parseInline (concat lines)))
 
 
 appendBlockExpr : List BlockExpr -> Maybe BlockExpr -> List BlockExpr
@@ -105,48 +103,37 @@ stick block line =
             [ line ]
 
 
+parseInline : String -> InlineExpr
+parseInline string =
+    let
+        trimmedString =
+            trim string
+    in
+        if isValidHeader trimmedString then
+            let
+                hashCount =
+                    case List.head (words trimmedString) of
+                        Just hd ->
+                            length hd
 
--- parseBlock : String -> BlockExpr
--- parseBlock string =
---     let
---         trimmedString =
---             trim string
---     in
---         if startsWith ">" trimmedString then
---             let
---                 inlineExprs =
---                     split ">" trimmedString
---                         |> List.filter (\x -> x /= "")
---                         |> List.map parseInline
---             in
---                 BlockQuote inlineExprs
---         else
---             InlineBlock (parseInline trimmedString)
--- parseInline : String -> InlineExpr
--- parseInline string =
---     let
---         trimmedString =
---             trim string
---     in
---         if isValidHeader trimmedString then
---             let
---                 hashCount =
---                     case List.head (words trimmedString) of
---                         Just hd ->
---                             length hd
---                         Nothing ->
---                             0
---             in
---                 Header hashCount (dropLeft hashCount trimmedString)
---         else
---             Plain trimmedString
--- isValidHeader : String -> Bool
--- isValidHeader string =
---     case (List.head (words string)) of
---         Just hd ->
---             isAllHash hd
---         Nothing ->
---             False
--- isAllHash : String -> Bool
--- isAllHash string =
---     List.foldr (\ele acc -> ele == '#' && acc) True (toList string)
+                        Nothing ->
+                            0
+            in
+                Header hashCount (dropLeft hashCount trimmedString)
+        else
+            Plain trimmedString
+
+
+isValidHeader : String -> Bool
+isValidHeader string =
+    case (List.head (words string)) of
+        Just hd ->
+            isAllHash hd
+
+        Nothing ->
+            False
+
+
+isAllHash : String -> Bool
+isAllHash string =
+    List.foldr (\ele acc -> ele == '#' && acc) True (toList string)
