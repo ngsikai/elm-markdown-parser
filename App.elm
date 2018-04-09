@@ -52,6 +52,9 @@ showBlock expr =
         BlockQuote contents ->
             blockquote [] (List.map showBlock contents)
 
+        UList contents ->
+            ul [] (List.map (\content -> li [] (List.map showBlock content)) contents)
+
 
 
 -- showInline : InlineExpr -> Html Msg

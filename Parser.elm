@@ -6,6 +6,7 @@ import String exposing (startsWith, dropLeft, split, lines, words, toList, lengt
 type BlockExpr
     = InlineBlock String
     | BlockQuote (List BlockExpr)
+    | UList (List (List BlockExpr))
 
 
 
@@ -50,6 +51,17 @@ parseByContext lines blockExprs currBlock currContext =
                                 buildBlock currBlock currContext
                         in
                             parseByContext xs (appendBlockExpr blockExprs blockExpr) [ trimmedLine ] ">"
+                else if startsWith "* " x then
+                    if currContext == "* " then
+                        parseByContext xs blockExprs (List.append currBlock [ trimmedLine ]) currContext
+                    else
+                        let
+                            blockExpr =
+                                buildBlock currBlock currContext
+                        in
+                            parseByContext xs (appendBlockExpr blockExprs blockExpr) [ trimmedLine ] "* "
+                else if currContext == "* " then
+                    parseByContext xs blockExprs (stick currBlock (dropLeft 2 x)) currContext
                 else
                     parseByContext xs blockExprs (stick currBlock trimmedLine) currContext
 
@@ -60,6 +72,12 @@ buildBlock lines context =
         Nothing
     else if context == ">" then
         Just (BlockQuote (parseByContext (List.map (dropLeft 1) lines) [] [] ""))
+    else if context == "* " then
+        let
+            listItems =
+                List.map (\line -> parseAll (dropLeft 2 line)) lines
+        in
+            Just (UList listItems)
     else
         Just (InlineBlock (concat lines))
 
