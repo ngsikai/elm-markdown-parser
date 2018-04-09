@@ -60,27 +60,47 @@ showInline : InlineExpr -> Html Msg
 showInline expr =
     case expr of
         Header level str ->
-            case level of
-                1 ->
-                    h1 [] [ text str ]
+            let
+                htmlText =
+                    List.map showHtmlText str
+            in
+                case level of
+                    1 ->
+                        h1 [] htmlText
 
-                2 ->
-                    h2 [] [ text str ]
+                    2 ->
+                        h2 [] htmlText
 
-                3 ->
-                    h3 [] [ text str ]
+                    3 ->
+                        h3 [] htmlText
 
-                4 ->
-                    h4 [] [ text str ]
+                    4 ->
+                        h4 [] htmlText
 
-                5 ->
-                    h5 [] [ text str ]
+                    5 ->
+                        h5 [] htmlText
 
-                _ ->
-                    h6 [] [ text str ]
+                    _ ->
+                        h6 [] htmlText
 
-        Plain str ->
-            p [] [ text str ]
+        Paragraph str ->
+            p [] (List.map showHtmlText str)
+
+
+showHtmlText : HtmlText -> Html Msg
+showHtmlText expr =
+    case expr of
+        Bold contents ->
+            b [] (List.map showHtmlText contents)
+
+        Italics contents ->
+            i [] (List.map showHtmlText contents)
+
+        Code contents ->
+            code [] [ text contents ]
+
+        Unformatted contents ->
+            text contents
 
 
 

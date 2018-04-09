@@ -1,6 +1,6 @@
 module Parser exposing (..)
 
-import String exposing (startsWith, dropLeft, split, lines, words, toList, length, trim, concat)
+import String exposing (startsWith, dropLeft, split, lines, words, toList, length, trim, concat, indexes, slice)
 
 
 type BlockExpr
@@ -10,17 +10,24 @@ type BlockExpr
 
 
 type InlineExpr
-    = Header Int String
-    | Plain String
+    = Header Int (List HtmlText)
+    | Paragraph (List HtmlText)
+
+
+type HtmlText
+    = Bold (List HtmlText)
+    | Italics (List HtmlText)
+    | Code String
+    | Unformatted String
 
 
 parseAll : String -> List BlockExpr
 parseAll string =
-    parseByContext (split "\n" string) [] [] ""
+    parseBlock (split "\n" string) [] [] ""
 
 
-parseByContext : List String -> List BlockExpr -> List String -> String -> List BlockExpr
-parseByContext lines blockExprs currBlock currContext =
+parseBlock : List String -> List BlockExpr -> List String -> String -> List BlockExpr
+parseBlock lines blockExprs currBlock currContext =
     case lines of
         [] ->
             let
@@ -39,29 +46,29 @@ parseByContext lines blockExprs currBlock currContext =
                         blockExpr =
                             buildBlock currBlock currContext
                     in
-                        parseByContext xs (appendBlockExpr blockExprs blockExpr) [] ""
+                        parseBlock xs (appendBlockExpr blockExprs blockExpr) [] ""
                 else if startsWith ">" trimmedLine then
                     if currContext == ">" then
-                        parseByContext xs blockExprs (List.append currBlock [ trimmedLine ]) currContext
+                        parseBlock xs blockExprs (List.append currBlock [ trimmedLine ]) currContext
                     else
                         let
                             blockExpr =
                                 buildBlock currBlock currContext
                         in
-                            parseByContext xs (appendBlockExpr blockExprs blockExpr) [ trimmedLine ] ">"
+                            parseBlock xs (appendBlockExpr blockExprs blockExpr) [ trimmedLine ] ">"
                 else if startsWith "* " x then
                     if currContext == "* " then
-                        parseByContext xs blockExprs (List.append currBlock [ trimmedLine ]) currContext
+                        parseBlock xs blockExprs (List.append currBlock [ trimmedLine ]) currContext
                     else
                         let
                             blockExpr =
                                 buildBlock currBlock currContext
                         in
-                            parseByContext xs (appendBlockExpr blockExprs blockExpr) [ trimmedLine ] "* "
+                            parseBlock xs (appendBlockExpr blockExprs blockExpr) [ trimmedLine ] "* "
                 else if currContext == "* " then
-                    parseByContext xs blockExprs (stick currBlock (dropLeft 2 x)) currContext
+                    parseBlock xs blockExprs (stick currBlock (dropLeft 2 x)) currContext
                 else
-                    parseByContext xs blockExprs (stick currBlock trimmedLine) currContext
+                    parseBlock xs blockExprs (stick currBlock trimmedLine) currContext
 
 
 buildBlock : List String -> String -> Maybe BlockExpr
@@ -69,7 +76,7 @@ buildBlock lines context =
     if lines == [] then
         Nothing
     else if context == ">" then
-        Just (BlockQuote (parseByContext (List.map (dropLeft 1) lines) [] [] ""))
+        Just (BlockQuote (parseBlock (List.map (dropLeft 1) lines) [] [] ""))
     else if context == "* " then
         let
             listItems =
@@ -119,9 +126,123 @@ parseInline string =
                         Nothing ->
                             0
             in
-                Header hashCount (dropLeft hashCount trimmedString)
+                Header hashCount (parseHtmlText (dropLeft hashCount trimmedString))
         else
-            Plain trimmedString
+            Paragraph (parseHtmlText trimmedString)
+
+
+parseHtmlText : String -> List HtmlText
+parseHtmlText string =
+    let
+        codeFormatted =
+            symbolParser "```" string
+    in
+        let
+            boldParser =
+                symbolParser "**"
+        in
+            let
+                boldFormatted =
+                    List.concat (List.map (\htmlText -> nextParse boldParser htmlText) codeFormatted)
+            in
+                let
+                    italicParser =
+                        symbolParser "*"
+                in
+                    List.concat (List.map (\htmlText -> nextParse italicParser htmlText) boldFormatted)
+
+
+nextParse : (String -> List HtmlText) -> HtmlText -> List HtmlText
+nextParse parser htmlText =
+    case htmlText of
+        Unformatted contents ->
+            parser contents
+
+        Bold contents ->
+            [ Bold (List.concat (List.map (nextParse parser) contents)) ]
+
+        Italics contents ->
+            [ Italics (List.concat (List.map (nextParse parser) contents)) ]
+
+        Code contents ->
+            [ Code contents ]
+
+
+symbolParser : String -> String -> List HtmlText
+symbolParser symbol string =
+    let
+        symbolIndexes =
+            getFirstTwoIndexes string symbol
+    in
+        let
+            symbolLength =
+                length symbol
+        in
+            case symbolIndexes of
+                Just ( a, b ) ->
+                    let
+                        front =
+                            Unformatted (slice 0 a string)
+                    in
+                        let
+                            back =
+                                parseHtmlText (dropLeft (b + symbolLength) string)
+                        in
+                            let
+                                middleString =
+                                    slice (a + symbolLength) b string
+                            in
+                                let
+                                    middle =
+                                        if symbol == "**" then
+                                            Bold (parseHtmlText middleString)
+                                        else if symbol == "*" then
+                                            Italics (parseHtmlText middleString)
+                                        else
+                                            Code middleString
+                                in
+                                    front :: middle :: back
+
+                Nothing ->
+                    [ Unformatted string ]
+
+
+getFirstTwoIndexes : String -> String -> Maybe ( Int, Int )
+getFirstTwoIndexes string symbol =
+    let
+        symbolIndexes =
+            indexes symbol string
+    in
+        if List.length symbolIndexes >= 2 then
+            let
+                first =
+                    getIndex 0 symbolIndexes
+            in
+                let
+                    second =
+                        getIndex 1 symbolIndexes
+                in
+                    case ( first, second ) of
+                        ( Just a, Just b ) ->
+                            Just ( a, b )
+
+                        ( _, _ ) ->
+                            Nothing
+        else
+            Nothing
+
+
+getIndex : Int -> List Int -> Maybe Int
+getIndex n xs =
+    if n == 0 then
+        List.head xs
+    else
+        case List.tail xs of
+            Just xs ->
+                getIndex (n - 1) xs
+
+            Nothing ->
+                Nothing
 
 
 isValidHeader : String -> Bool
