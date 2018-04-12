@@ -127,7 +127,7 @@ parseInline string =
                         Nothing ->
                             0
             in
-                Header hashCount (parseHtmlText (dropLeft hashCount trimmedString))
+                Header hashCount (parseHtmlText (dropLeft (hashCount + 1) trimmedString))
         else
             Paragraph (parseHtmlText trimmedString)
 
