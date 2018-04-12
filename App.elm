@@ -96,9 +96,6 @@ showHtmlText expr =
         Italics contents ->
             i [] (List.map showHtmlText contents)
 
-        Code contents ->
-            code [] [ text contents ]
-
         Unformatted contents ->
             text contents
 
