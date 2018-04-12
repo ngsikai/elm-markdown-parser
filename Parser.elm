@@ -1,7 +1,7 @@
 module Parser exposing (..)
 
 import String exposing (startsWith, dropLeft, split, lines, words, toList, length, trim, concat, indexes, slice, join, fromChar)
-import Combine exposing (parse, regex, manyTill, (*>), string, Parser, map, sequence)
+import Combine exposing (parse, regex, manyTill, (*>), string, Parser, map, sequence, many)
 import Combine.Char exposing (anyChar)
 
 
@@ -134,41 +134,39 @@ parseInline string =
 
 parseHtmlText : String -> List HtmlText
 parseHtmlText string =
-    -- let
-    --     symbolList =
-    --         [ "__", "*" ]
-    -- in
-    --     let
-    --         symbolParsers =
-    --             List.map createSymbolParser symbolList
-    --     in
-    --         let
-    --             combinedParser =
-    --                 Combine.choice symbolParsers
-    --         in
-    --             [ Unformatted string ]
     let
-        enclosedString =
-            case parse (createSymbolParser "__") string of
-                Ok ( _, stream, result ) ->
-                    -- ( stream.input, result )
-                    case List.tail result of
-                        Just xs ->
-                            case List.head xs of
-                                Just hd ->
-                                    hd
-
-                                Nothing ->
-                                    ""
-
-                        Nothing ->
-                            ""
-
-                Err ( _, stream, errors ) ->
-                    "fail"
+        parsers =
+            Combine.choice (List.map createSymbolParser [ "__", "*" ])
     in
-        [ Bold ([ Unformatted enclosedString ])
-        ]
+        case parse parsers string of
+            Ok ( _, stream, result ) ->
+                if getSymbol result == "__" then
+                    Bold (parseHtmlText (getMsg result)) :: parseHtmlText stream.input
+                else
+                    Italics (parseHtmlText (getMsg result)) :: parseHtmlText stream.input
+
+            Err ( _, stream, errors ) ->
+                [ Unformatted string ]
+
+
+getSymbol : List String -> String
+getSymbol lst =
+    case List.head lst of
+        Just hd ->
+            hd
+
+        Nothing ->
+            ""
+
+
+getMsg : List String -> String
+getMsg lst =
+    case List.tail lst of
+        Just tl ->
+            getSymbol tl
+
+        Nothing ->
+            ""
 
 
 
@@ -196,7 +194,6 @@ createSymbolParser symbol =
 
 
 
--- |> map ()
 -- parseHtmlText : String -> List HtmlText
 -- parseHtmlText string =
 --     let
