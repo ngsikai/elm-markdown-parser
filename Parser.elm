@@ -1,7 +1,7 @@
 module Parser exposing (..)
 
 import String exposing (startsWith, dropLeft, split, lines, words, toList, length, trim, concat, indexes, slice, join, fromChar)
-import Combine exposing (parse, regex, manyTill, (*>), string, Parser, map, sequence, many)
+import Combine exposing (parse, regex, manyTill, (*>), string, Parser, map, sequence, many, choice, lookAhead, (<|>))
 import Combine.Char exposing (anyChar)
 
 
@@ -136,14 +136,18 @@ parseHtmlText : String -> List HtmlText
 parseHtmlText string =
     let
         parsers =
-            Combine.choice (List.map createSymbolParser [ "__", "*" ])
+            (choice (List.map createSymbolParser [ "__", "*" ])) <|> unformattedParser
     in
         case parse parsers string of
             Ok ( _, stream, result ) ->
-                if getSymbol result == "__" then
+                if getMsg result == "" then
+                    Unformatted (slice 0 1 string) :: parseHtmlText (slice 1 (length string) string)
+                else if getSymbol result == "__" then
                     Bold (parseHtmlText (getMsg result)) :: parseHtmlText stream.input
-                else
+                else if getSymbol result == "*" then
                     Italics (parseHtmlText (getMsg result)) :: parseHtmlText stream.input
+                else
+                    Unformatted (getMsg result) :: parseHtmlText stream.input
 
             Err ( _, stream, errors ) ->
                 [ Unformatted string ]
@@ -169,20 +173,6 @@ getMsg lst =
             ""
 
 
-
--- enclosing : String -> Parser String String
--- parseBetween symbol string =
---     let
---         symbolParser =
---             createSymbolParser symbol
---     in
---         case parse symbolParser string of
---             Ok ( _, stream, result ) ->
---                 Ok result
---             Err ( _, stream, errors ) ->
---                 Err (join " or " errors)
-
-
 createSymbolParser : String -> Parser s (List String)
 createSymbolParser symbol =
     sequence
@@ -193,93 +183,10 @@ createSymbolParser symbol =
         ]
 
 
-
--- parseHtmlText : String -> List HtmlText
--- parseHtmlText string =
---     let
---         boldFormatted =
---             symbolParser "__" string
---     in
---         let
---             italicParser =
---                 symbolParser "*"
---         in
---             List.concat (List.map (\htmlText -> nextParse italicParser htmlText) boldFormatted)
--- nextParse : (String -> List HtmlText) -> HtmlText -> List HtmlText
--- nextParse parser htmlText =
---     case htmlText of
---         Unformatted contents ->
---             parser contents
---         Bold contents ->
---             [ Bold (List.concat (List.map (nextParse parser) contents)) ]
---         Italics contents ->
---             [ Italics (List.concat (List.map (nextParse parser) contents)) ]
--- symbolParser : String -> String -> List HtmlText
--- symbolParser symbol string =
---     let
---         symbolIndexes =
---             getFirstTwoIndexes string symbol
---     in
---         let
---             symbolLength =
---                 length symbol
---         in
---             case symbolIndexes of
---                 Just ( a, b ) ->
---                     let
---                         front =
---                             Unformatted (slice 0 a string)
---                     in
---                         let
---                             back =
---                                 parseHtmlText (dropLeft (b + symbolLength) string)
---                         in
---                             let
---                                 middleString =
---                                     slice (a + symbolLength) b string
---                             in
---                                 let
---                                     middle =
---                                         if symbol == "__" then
---                                             Bold (parseHtmlText middleString)
---                                         else
---                                             Italics (parseHtmlText middleString)
---                                 in
---                                     front :: middle :: back
---                 Nothing ->
---                     [ Unformatted string ]
--- getFirstTwoIndexes : String -> String -> Maybe ( Int, Int )
--- getFirstTwoIndexes string symbol =
---     let
---         symbolIndexes =
---             indexes symbol string
---     in
---         if List.length symbolIndexes >= 2 then
---             let
---                 first =
---                     getIndex 0 symbolIndexes
---             in
---                 let
---                     second =
---                         getIndex 1 symbolIndexes
---                 in
---                     case ( first, second ) of
---                         ( Just a, Just b ) ->
---                             Just ( a, b )
---                         ( _, _ ) ->
---                             Nothing
---         else
---             Nothing
--- getIndex : Int -> List Int -> Maybe Int
--- getIndex n xs =
---     if n == 0 then
---         List.head xs
---     else
---         case List.tail xs of
---             Just xs ->
---                 getIndex (n - 1) xs
---             Nothing ->
---                 Nothing
+unformattedParser : Parser s (List String)
+unformattedParser =
+    manyTill anyChar (lookAhead ((string "__") <|> (string "*")))
+        |> map (\xs -> [ "", join "" (List.map (fromChar) xs) ])
 
 
 isValidHeader : String -> Bool
