@@ -28,62 +28,46 @@ parseAll string =
 
 
 parseBlock : List String -> List BlockExpr -> List String -> String -> List BlockExpr
-parseBlock lines blockExprs currBlock currContext =
-    case lines of
-        [] ->
-            let
-                blockExpr =
-                    buildBlock currBlock currContext
-            in
+parseBlock lines blockExprs currLines currContext =
+    let
+        blockExpr =
+            buildBlockExpr currLines currContext
+    in
+        case lines of
+            [] ->
                 appendBlockExpr blockExprs blockExpr
 
-        x :: xs ->
-            let
-                trimmedLine =
-                    trim x
-            in
-                if length trimmedLine == 0 then
-                    let
-                        blockExpr =
-                            buildBlock currBlock currContext
-                    in
+            x :: xs ->
+                let
+                    trimmedLine =
+                        trim x
+                in
+                    if length trimmedLine == 0 then
                         parseBlock xs (appendBlockExpr blockExprs blockExpr) [] ""
-                else if startsWith ">" trimmedLine then
-                    if currContext == ">" then
-                        parseBlock xs blockExprs (List.append currBlock [ trimmedLine ]) currContext
-                    else
-                        let
-                            blockExpr =
-                                buildBlock currBlock currContext
-                        in
+                    else if startsWith ">" trimmedLine then
+                        if currContext == ">" then
+                            parseBlock xs blockExprs (List.append currLines [ trimmedLine ]) currContext
+                        else
                             parseBlock xs (appendBlockExpr blockExprs blockExpr) [ trimmedLine ] ">"
-                else if startsWith "* " x then
-                    if currContext == "* " then
-                        parseBlock xs blockExprs (List.append currBlock [ trimmedLine ]) currContext
-                    else
-                        let
-                            blockExpr =
-                                buildBlock currBlock currContext
-                        in
+                    else if startsWith "* " x then
+                        if currContext == "* " then
+                            parseBlock xs blockExprs (List.append currLines [ trimmedLine ]) currContext
+                        else
                             parseBlock xs (appendBlockExpr blockExprs blockExpr) [ trimmedLine ] "* "
-                else if currContext == "* " then
-                    parseBlock xs blockExprs (stick currBlock (dropLeft 2 x)) currContext
-                else
-                    parseBlock xs blockExprs (stick currBlock trimmedLine) currContext
+                    else if startsWith "  " x && currContext == "* " then
+                        parseBlock xs blockExprs (stick currLines (dropLeft 2 x)) currContext
+                    else
+                        parseBlock xs blockExprs (stick currLines trimmedLine) currContext
 
 
-buildBlock : List String -> String -> Maybe BlockExpr
-buildBlock lines context =
+buildBlockExpr : List String -> String -> Maybe BlockExpr
+buildBlockExpr lines context =
     if lines == [] then
         Nothing
     else if context == ">" then
         Just (BlockQuote (parseBlock (List.map (dropLeft 1) lines) [] [] ""))
     else if context == "* " then
-        let
-            listItems =
-                List.map (\line -> parseAll (dropLeft 2 line)) lines
-        in
-            Just (UList listItems)
+        Just (UList (List.map (\line -> parseAll (dropLeft 2 line)) lines))
     else
         Just (InlineBlock (parseInline (concat lines)))
 
@@ -99,16 +83,16 @@ appendBlockExpr blocks block =
 
 
 stick : List String -> String -> List String
-stick block line =
-    case block of
+stick lines line =
+    case lines of
+        [] ->
+            [ line ]
+
         x :: [] ->
             [ x ++ "\n" ++ line ]
 
         x :: xs ->
             x :: (stick xs line)
-
-        [] ->
-            [ line ]
 
 
 parseInline : String -> InlineExpr
@@ -120,12 +104,7 @@ parseInline string =
         if isValidHeader trimmedString then
             let
                 hashCount =
-                    case List.head (words trimmedString) of
-                        Just hd ->
-                            length hd
-
-                        Nothing ->
-                            0
+                    getHashCount trimmedString
             in
                 Header hashCount (parseHtmlText (dropLeft (hashCount + 1) trimmedString))
         else
@@ -140,21 +119,25 @@ parseHtmlText string =
     in
         case parse parsers string of
             Ok ( _, stream, result ) ->
-                if getMsg result == "" then
-                    Unformatted (slice 0 1 string) :: parseHtmlText (slice 1 (length string) string)
-                else if getSymbol result == "__" then
-                    Bold (parseHtmlText (getMsg result)) :: parseHtmlText stream.input
-                else if getSymbol result == "*" then
-                    Italics (parseHtmlText (getMsg result)) :: parseHtmlText stream.input
-                else
-                    Unformatted (getMsg result) :: parseHtmlText stream.input
+                let
+                    parsedString =
+                        getSecond result
+                in
+                    if parsedString == "" then
+                        Unformatted (slice 0 1 string) :: parseHtmlText (slice 1 (length string) string)
+                    else if getFirst result == "__" then
+                        Bold (parseHtmlText parsedString) :: parseHtmlText stream.input
+                    else if getFirst result == "*" then
+                        Italics (parseHtmlText parsedString) :: parseHtmlText stream.input
+                    else
+                        Unformatted parsedString :: parseHtmlText stream.input
 
             Err ( _, stream, errors ) ->
                 [ Unformatted string ]
 
 
-getSymbol : List String -> String
-getSymbol lst =
+getFirst : List String -> String
+getFirst lst =
     case List.head lst of
         Just hd ->
             hd
@@ -163,11 +146,11 @@ getSymbol lst =
             ""
 
 
-getMsg : List String -> String
-getMsg lst =
+getSecond : List String -> String
+getSecond lst =
     case List.tail lst of
         Just tl ->
-            getSymbol tl
+            getFirst tl
 
         Nothing ->
             ""
@@ -191,12 +174,22 @@ unformattedParser =
 
 isValidHeader : String -> Bool
 isValidHeader string =
-    case (List.head (words string)) of
+    case List.head (words string) of
         Just hd ->
             isAllHash hd
 
         Nothing ->
             False
+
+
+getHashCount : String -> Int
+getHashCount string =
+    case List.head (words string) of
+        Just hd ->
+            length hd
+
+        Nothing ->
+            0
 
 
 isAllHash : String -> Bool

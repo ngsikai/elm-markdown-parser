@@ -59,10 +59,10 @@ showBlock expr =
 showInline : InlineExpr -> Html Msg
 showInline expr =
     case expr of
-        Header level str ->
+        Header level contents ->
             let
                 htmlText =
-                    List.map showHtmlText str
+                    List.map showHtmlText contents
             in
                 case level of
                     1 ->
@@ -83,8 +83,8 @@ showInline expr =
                     _ ->
                         h6 [] htmlText
 
-        Paragraph str ->
-            p [] (List.map showHtmlText str)
+        Paragraph contents ->
+            p [] (List.map showHtmlText contents)
 
 
 showHtmlText : HtmlText -> Html Msg
