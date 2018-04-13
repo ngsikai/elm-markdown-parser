@@ -1,8 +1,14 @@
 module App exposing (..)
 
 import Parser exposing (..)
-import Html exposing (..)
-import Html.Events exposing (onInput)
+
+
+-- import Html
+
+import Html.Styled.Events exposing (onInput)
+import Css exposing (..)
+import Html.Styled.Attributes exposing (css)
+import Html.Styled exposing (..)
 
 
 -- MODEL
@@ -14,7 +20,7 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    ( "#hello", Cmd.none )
+    ( "# CS4215\n* Introduction\n* Algebraic Data Types\n  * Sum Types\n    * hello\n  * Product Types\n    * world\n* Parsing Markdown\n> This is a blockquote\n>> This is a *nested* blockquote\n>>> This is a __really nested__ blockquote", Cmd.none )
 
 
 
@@ -31,15 +37,57 @@ type Msg
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ div []
-            [ textarea [ onInput Change ] [ text model ]
+    div
+        [ css
+            [ padding2 (px 30) (px 50)
+            ]
+        ]
+        [ h1
+            [ css
+                [ marginLeft (pct 3)
+                , fontFamily monospace
+                , marginBottom (px 30)
+                ]
+            ]
+            [ text "Simple Markdown Parser powered by Elm" ]
+        , div
+            [ css
+                [ width (pct 45)
+                , height (px 400)
+                , float left
+                , marginLeft (pct 3)
+                ]
+            ]
+            [ textarea
+                [ onInput Change
+                , css
+                    [ resize vertical
+                    , width (pct 100)
+                    , height (pct 100)
+                    , fontSize (px 15)
+                    , fontFamily monospace
+                    ]
+                ]
+                [ text model ]
             ]
         , let
             exprs =
                 (parseAll model)
           in
-            div [] (List.map showBlock exprs)
+            div
+                [ css
+                    [ width (pct 45)
+                    , height (px 400)
+                    , maxHeight (px 400)
+                    , float left
+                    , marginLeft (pct 4)
+                    , paddingLeft (px 5)
+                    , fontSize (px 16)
+                    , overflow scroll
+                    , boxShadow3 (px 0) (px 0) (px 5)
+                    ]
+                ]
+                (List.map showBlock exprs)
         ]
 
 
@@ -50,7 +98,7 @@ showBlock expr =
             showInline contents
 
         BlockQuote contents ->
-            blockquote [] (List.map showBlock contents)
+            blockquote [ css [ borderLeft3 (px 5) solid (rgb 238 238 238), padding2 (px 5) (px 10) ] ] (List.map showBlock contents)
 
         UList contents ->
             ul [] (List.map (\content -> li [] (List.map showBlock content)) contents)
