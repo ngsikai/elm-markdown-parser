@@ -20,7 +20,7 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    ( "# CS4215\n* Introduction\n* Algebraic Data Types\n  * Sum Types\n    * hello\n  * Product Types\n    * world\n* Parsing Markdown\n> This is a blockquote\n>> This is a *nested* blockquote\n>>> This is a __really nested__ blockquote", Cmd.none )
+    ( "# Overview\n* Introduction to Markdown\n* Our Project - MiniMark\n* Demo of MiniMark\n  * It's happening now!\n* Critique of the Elm Language\n\n#### Here's some blockquote magic:\n> This is a blockquote\n>> This is a *nested* blockquote\n>>> This is a __really__ *nested* blockquote", Cmd.none )
 
 
 
